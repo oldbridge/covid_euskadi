@@ -12,11 +12,28 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from datetime import datetime, timezone
 
-def read_data_from_net():
+
+def extend_dt_index(dt_index, num_days):
+    last_day = dt_index[-1]
+    for i in range(0, num_days):
+        dt_index = dt_index.append(pd.DatetimeIndex([last_day + pd.DateOffset(i)]))
+    return dt_index
+    
+def read_data_from_net(save=True, savedir="downloads"):
     municipios_url = r"https://opendata.euskadi.eus/contenidos/ds_informes_estudios/covid_19_2020/opendata/generated/covid19-bymunicipality.json"
     data = requests.get(municipios_url).json()
+    if save:
+        timestamp = datetime.now().strftime("%Y-%m-%d")
+        name = f'{savedir}/covid_data_{timestamp}.json'
+        with open(name, 'w') as f:
+            json.dump(data, f)
     return data
 
+def load_from_file(filename):
+    with open(filename, 'r') as f:
+        data = json.load(f)
+    return data
+    
 def read_sample_data():
     sample_data = "sample_data/covid19-bymunicipality_11012021.json"
     with open(sample_data, 'r') as f:
