@@ -12,6 +12,11 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from datetime import datetime, timezone
 
+def read_data_from_net():
+    municipios_url = r"https://opendata.euskadi.eus/contenidos/ds_informes_estudios/covid_19_2020/opendata/generated/covid19-bymunicipality.json"
+    data = requests.get(municipios_url).json()
+    return data
+
 def read_sample_data():
     sample_data = "sample_data/covid19-bymunicipality_11012021.json"
     with open(sample_data, 'r') as f:
@@ -27,28 +32,29 @@ def get_populations(datas, cities):
             sizes[city] = data['values'][0]
     return sizes
 
-def get_time_series(datas, cities):
-    
-    df = pd.DataFrame()
-    for data in datas['newPositivesByDateByMunicipality']:
-        date = data['date']
-        for i in data['items']:
-            count = i['positiveCount']
-            city = i['geoMunicipality']['officialName']
-            if city in cities:
-                df = df.append({'city': city, 
-                                'date': date, 
-                                'count': count}, ignore_index=True)
-    
-    df['date'] = pd.to_datetime(df['date'])
+def get_time_series(datas, cities=None):
+    """" Improved method"""
+    df = pd.DataFrame(columns=cities)
+    for data in datas['newPositivesByMunicipalityByDate']['positiveCountByMunicipalityByDate']:
+        city = data['dimension']['officialName']
+        if cities == None or city in cities:
+            ts = pd.Series(data['values'], index = pd.DatetimeIndex(data['dates']))
+            df[city] = ts
     
     # Arreglar cagada de OpenData
     for i, row in df.iterrows():
-        if (row['date'] <= datetime(2021, 12, 31, tzinfo=timezone.utc)) & (row['date'] > datetime(2021, 4, 1, tzinfo=timezone.utc)):
-            row['date'] = row['date'].replace(year=2020)
-            df.iloc[i] = row
-    
-    df.set_index("date", inplace=True)
+        if (i <= datetime(2021, 12, 31, tzinfo=timezone.utc)) & (i > datetime(2021, 4, 1, tzinfo=timezone.utc)):
+            df.rename(index={i: i.replace(year=2020)}, inplace=True)
+            
+    return df
+
+def get_incidence_series(ts, population):
+    df = pd.DataFrame(columns=['incidence7_abs', 'incidence7_100k', 'incidence14_abs', 'incidence14_100k'])
+    df['count'] = ts
+    df['incidence7_abs'] = ts.rolling(7).sum()
+    df['incidence14_abs'] = ts.rolling(14).sum()
+    df['incidence7_100k'] = df['incidence7_abs'] * 100000 / population
+    df['incidence14_100k'] = df['incidence14_abs'] * 100000 / population
     return df
 
 def get_all_data(datas):
