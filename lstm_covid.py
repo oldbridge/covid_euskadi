@@ -39,15 +39,13 @@ if __name__ == '__main__':
     
     df = get_time_series(datas, cities)
     
-    train_len = 0.6
+    train_len = 0.55
     verify_len = 0.4
     look_back = 5
     
     for city in cities:
         inci = get_incidence_series(df[city], sizes[city])
-        inci_np = np.array(inci['incidence14_100k'])[14:]
-        # Plot the incidencias acumuladas
-        
+        inci_np = np.array(inci['incidence14_100k'])[14:]     
         
         # normalize the dataset
         inci_np = inci_np / max(inci_np)
@@ -59,10 +57,12 @@ if __name__ == '__main__':
         verify_data = inci_np[int(len(inci_np) * train_len):int(len(inci_np) * train_len) + int(len(inci_np) * verify_len)]
         
         # Create train dataset
+        allX, allY = create_dataset(inci_np)
         trainX, trainY = create_dataset(training_data)
         verifyX, verifyY = create_dataset(verify_data)
         
         # reshape input to be [samples, time steps, features]
+        allX = np.reshape(allX, (allX.shape[0], 1, allX.shape[1]))
         trainX = np.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
         verifyX = np.reshape(verifyX, (verifyX.shape[0], 1, verifyX.shape[1]))
         
@@ -74,10 +74,13 @@ if __name__ == '__main__':
         model.fit(trainX, trainY, epochs=100, batch_size=1, verbose=2)
         
         # Plot training data + prediction
-        predY = model.predict(verifyX)
-        plt.plot(verifyY)
-        plt.plot(predY)
+        predY = model.predict(allX)
         
-        plt.legend(['Real', 'Prediction'])
+        plt.plot(allY, 'x-')
+        plt.plot(predY, 'o-')
+        
+        muga = int(len(inci_np) * train_len)
+        plt.plot([muga, muga], [0, 1], 'r')
+        plt.legend(['Real', 'Prediction', 'Train / Predict'])
         
         
