@@ -20,6 +20,8 @@ import os
 def read_populations():
     filename = 'city_sizes.csv'
     sizes = pd.read_csv(filename, encoding='ISO-8859-1',index_col=[0])
+    return sizes
+    
     
     
 def extend_dt_index(dt_index, num_days):
