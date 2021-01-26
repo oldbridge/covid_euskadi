@@ -11,8 +11,17 @@ import requests
 import pandas as pd
 from matplotlib import pyplot as plt
 from datetime import datetime, timezone
+import csv
+import requests
+import zipfile
+import tempfile
+import os
 
-
+def read_populations():
+    filename = 'city_sizes.csv'
+    sizes = pd.read_csv(filename, encoding='ISO-8859-1',index_col=[0])
+    
+    
 def extend_dt_index(dt_index, num_days):
     last_day = dt_index[-1]
     for i in range(0, num_days):
