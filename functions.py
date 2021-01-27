@@ -22,7 +22,87 @@ def read_populations():
     sizes = pd.read_csv(filename, encoding='ISO-8859-1',index_col=[0])
     return sizes
     
+def read_from_csv_net():
+    csv_url = r'https://opendata.euskadi.eus/contenidos/ds_informes_estudios/covid_19_2020/opendata/situacion-epidemiologica.zip'
     
+    # Filenames and data
+    map_index = {'global': '01.csv',
+                 'nuevos_positivos': '02.csv',
+                 'sexo': '03.csv',
+                 'municipios': '04.csv',
+                 'positivos_zona_salud': '05.csv',
+                 'muertos': '08.csv',
+                 'positivos_edad': '09.csv'}
+    
+    # Download the data
+    r = requests.get(csv_url, stream=True)
+    tmp_file = tempfile.TemporaryFile(mode='w+b', suffix='.zip', delete=False)
+    with open(tmp_file.name, 'wb') as fd:
+        for chunk in r.iter_content(chunk_size=1024):
+            fd.write(chunk)
+    
+    with zipfile.ZipFile(tmp_file.name, 'r') as zip_ref:
+        tmp_dir = tempfile.TemporaryDirectory()
+        zip_ref.extractall(tmp_dir.name)
+    
+    tmp_file.close()
+    
+    df = {}
+    for i in map_index:
+        file_name = map_index[i]
+        if i == 'nuevos_positivos':
+            df[i] = pd.read_csv(os.path.join(tmp_dir.name, file_name), 
+                             sep=";", header=1, 
+                             usecols=range(6), 
+                             encoding='ISO-8859-1',
+                             index_col=[0],
+                             parse_dates=True,
+                             decimal=",")
+        elif i == 'municipios':
+            df[i] = pd.read_csv(os.path.join(tmp_dir.name, file_name), 
+                             sep=";", header=1, 
+                             encoding='ISO-8859-1',
+                             index_col=[0],
+                             decimal=",").transpose()[:-1]
+            df[i].index = pd.to_datetime(df[i].index)
+        elif i == 'global':
+            df_tmp = pd.read_csv(os.path.join(tmp_dir.name, file_name), 
+                             sep=";", header=1, 
+                             encoding='ISO-8859-1',
+                             index_col=[0],
+                             decimal=",")
+            
+            # Only more or less usable columns
+            columns = {'Testak guztira / Test totales' : "total_tests",
+                       'PCR kasu positiboak / Casos positivos PCR' : "pcr_positives",
+                       'ZIUn ospitaleratuak / Hospitalizados en UCI': 'uci_total',
+                       'Hildakoak / Fallecidos': 'total_deaths',
+                       'Ospitaleko altak / Altas hospitalarias':'hosp_release',
+                       'Plantan ospitaleratuta dauden positibodunak / Ingresados en planta con positivo': 'hospital_floor',
+                       ' Positibodun ospitaleratze berriak plantan / Nuevos ingresos planta con positivo': 'new_intake'}
+           
+            df_tmp = df_tmp.filter(items=list(columns.keys()))
+            df_tmp = df_tmp.rename(columns=columns, errors='raise')
+            
+            # Get daily values
+            df_tmp['daily_tests'] = df_tmp['total_tests'].diff()
+            df_tmp['daily_positives'] = df_tmp['pcr_positives'].diff()
+            
+            # Interpolate deaths
+            df_tmp['total_deaths'].interpolate(inplace=True)
+            df_tmp['total_deaths'] = df_tmp['total_deaths'].round()
+            df_tmp['daily_deaths'] = df_tmp['total_deaths'].diff()
+            
+            df_tmp['uci_total'].interpolate(inplace=True)
+            df_tmp['uci_daily'] = df_tmp['uci_total'].diff()
+            df_tmp['hosp_release'].interpolate(inplace=True)
+            df_tmp['hosp_release_daily'] = df_tmp['hosp_release'].diff()
+            
+            # Some useful computes
+            df_tmp['positivity_rate'] = df_tmp['daily_positives'] / df_tmp['daily_tests']
+            
+            df[i] = df_tmp
+    return df
     
 def extend_dt_index(dt_index, num_days):
     last_day = dt_index[-1]
