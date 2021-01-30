@@ -102,6 +102,7 @@ def read_from_csv_net():
             df_tmp['positivity_rate'] = df_tmp['daily_positives'] / df_tmp['daily_tests']
             
             df[i] = df_tmp
+            df[i].index = pd.to_datetime(df[i].index)
     return df
     
 def extend_dt_index(dt_index, num_days):
