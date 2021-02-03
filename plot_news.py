@@ -12,7 +12,10 @@ import matplotlib.pyplot as plt
 if __name__ == '__main__':
     df = read_from_csv_net()
     
-    fig, ax = plt.subplots(4, 1, sharex=True)
+    fig, ax = plt.subplots(5, 1, sharex=True)
+    
+    sizes = read_populations()
+    show_city = 'Usurbil'
     
     data = df['global']
     ax[0].plot(data['total_tests'])
@@ -43,3 +46,15 @@ if __name__ == '__main__':
     ax[3].legend(['New intake', 'Releases'])
     ax[3].set_ylabel("Patients")
     ax[3].grid(True)
+    
+    city_data = df['municipios'][show_city]
+    city_size = sizes[sizes.index == show_city]['inhabitants'][0]
+    ax[4].plot(city_data)
+    inci_abs = city_data.rolling(14).sum()
+    inci_100k = inci_abs * 100000 / city_size
+    ax4_twin = ax[4].twinx()
+    ax4_twin.plot(inci_100k, 'r')
+    ax4_twin.set_ylabel('14 day incidence per 100k inhabitants')
+    ax[4].legend(['Daily positives'])
+    ax[4].set_ylabel("Patients")
+    ax[4].grid(True)
